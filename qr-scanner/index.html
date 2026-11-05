@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10131d">
+  <title>QR Studio — QR Code Scanner</title>
+  <meta name="description" content="A simple, private QR code scanner. Scan with your camera or upload an image.">
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    :root{color-scheme:dark;--bg:#10131d;--panel:#191e2b;--panel2:#202738;--text:#f4f6fb;--muted:#9aa5b8;--line:#30394b;--accent:#9b8cff;--accent2:#6fcbba;--danger:#ff8c9a}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% -15%,#34305d 0,transparent 48%),var(--bg);color:var(--text);font:15px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    button,input{font:inherit}
+    .wrap{width:min(100% - 32px,960px);margin:0 auto;padding:42px 0 56px}
+    header{text-align:center;margin-bottom:30px}
+    .mark{display:inline-grid;place-items:center;width:48px;height:48px;border:1px solid #514b7c;border-radius:15px;background:#292541;color:#c5bbff;font-size:25px;margin-bottom:12px}
+    h1{font-size:clamp(30px,5vw,43px);letter-spacing:-1.6px;line-height:1.1;margin:0}
+    header p{color:var(--muted);margin:10px 0 0}
+    .layout{display:grid;grid-template-columns:1.05fr .95fr;gap:18px;align-items:start}
+    .card{background:linear-gradient(160deg,rgba(31,39,56,.97),rgba(23,28,41,.97));border:1px solid var(--line);border-radius:22px;padding:22px;box-shadow:0 18px 55px #0003}
+    .card h2{font-size:16px;margin:0 0 16px;letter-spacing:.1px}
+    .tabs{display:flex;gap:8px;margin-bottom:16px}
+    .tab,.btn{border:1px solid var(--line);border-radius:12px;padding:10px 14px;background:var(--panel2);color:var(--text);cursor:pointer;transition:.18s}
+    .tab{flex:1;color:var(--muted)}
+    .tab[aria-selected=true]{background:#39345d;border-color:#7469b2;color:#fff}
+    button:hover{filter:brightness(1.15)}
+    button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+    #reader{width:100%;overflow:hidden;border-radius:15px;background:#0c1018;min-height:260px}
+    #reader video{border-radius:12px;object-fit:cover}
+    #reader__dashboard_section_csr button{background:#39345d!important;color:#fff!important;border:1px solid #7469b2!important;border-radius:9px!important;padding:8px 12px!important}
+    #reader__dashboard_section_csr select{background:#202738!important;color:#fff!important;border:1px solid var(--line)!important;border-radius:8px!important;padding:7px!important}
+    #reader__status_span{color:var(--muted)!important}
+    .hint{color:var(--muted);font-size:13px;margin:12px 0 0}
+    .upload{border:1px dashed #59647a;border-radius:15px;padding:27px 16px;text-align:center;background:#151b28}
+    .upload .glyph{font-size:32px;color:var(--accent);margin-bottom:8px}
+    .upload p{margin:0 0 14px;color:var(--muted);font-size:14px}
+    .primary{background:var(--accent);border-color:var(--accent);color:#171329;font-weight:700}
+    .secondary{background:#263044}
+    #fileInput{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+    .result{margin-top:18px}
+    .empty{border:1px solid var(--line);border-radius:15px;padding:22px;text-align:center;color:var(--muted);background:#151b28}
+    .empty .glyph{font-size:27px;margin-bottom:6px}
+    .result-box{border:1px solid #426b65;background:#142824;border-radius:15px;padding:16px}
+    .result-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+    .success{font-size:12px;color:var(--accent2);font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+    .result-text{overflow-wrap:anywhere;white-space:pre-wrap;margin:0 0 14px;font-size:14px}
+    .actions{display:flex;gap:8px;flex-wrap:wrap}
+    .actions .btn{font-size:13px;padding:8px 11px}
+    .status{min-height:22px;color:var(--muted);font-size:13px;margin-top:12px}
+    .status.error{color:var(--danger)}
+    footer{text-align:center;color:#758097;font-size:12px;margin-top:24px}
+    .hidden{display:none!important}
+    @media(max-width:700px){.wrap{padding-top:28px}.layout{grid-template-columns:1fr}.card{padding:17px}#reader{min-height:230px}}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <div class="mark" aria-hidden="true">▦</div>
+      <h1>QR <span style="color:var(--accent)">Studio</span></h1>
+      <p>Scan a QR code instantly — with your camera or an image.</p>
+    </header>
+    <div class="layout">
+      <section class="card" aria-labelledby="scanTitle">
+        <h2 id="scanTitle">Scan a code</h2>
+        <div class="tabs" role="tablist" aria-label="Scan method">
+          <button class="tab" id="cameraTab" role="tab" aria-selected="true" type="button">Camera</button>
+          <button class="tab" id="uploadTab" role="tab" aria-selected="false" type="button">Upload image</button>
+        </div>
+        <div id="cameraPanel">
+          <div id="reader"></div>
+          <p class="hint">Allow camera access when prompted. Use HTTPS or localhost for camera scanning.</p>
+        </div>
+        <div id="uploadPanel" class="hidden">
+          <div class="upload">
+            <div class="glyph" aria-hidden="true">▧</div>
+            <p>Choose an image containing a QR code.</p>
+            <input id="fileInput" type="file" accept="image/*">
+            <button class="btn primary" id="chooseFile" type="button">Choose image</button>
+          </div>
+          <p class="hint">PNG, JPG, and other browser-supported image formats.</p>
+        </div>
+        <div id="status" class="status" role="status" aria-live="polite">Starting camera…</div>
+      </section>
+      <section class="card" aria-labelledby="resultTitle">
+        <h2 id="resultTitle">Scan result</h2>
+        <div id="emptyResult" class="empty">
+          <div class="glyph" aria-hidden="true">⌗</div>
+          <div>Your scanned content will appear here.</div>
+        </div>
+        <div id="resultBox" class="result-box hidden">
+          <div class="result-top"><span class="success">✓ QR code detected</span></div>
+          <p id="resultText" class="result-text"></p>
+          <div class="actions">
+            <button class="btn primary" id="copyBtn" type="button">Copy result</button>
+            <a class="btn secondary hidden" id="openLink" target="_blank" rel="noopener noreferrer">Open link ↗</a>
+            <button class="btn secondary" id="clearBtn" type="button">Clear</button>
+          </div>
+        </div>
+        <p class="hint">Scanned content stays in this page. Links only open when you choose to open them.</p>
+      </section>
+    </div>
+    <footer>QR Studio · Camera access is used only to scan codes in your browser.</footer>
+  </main>
+  <script>
+    (() => {
+      const status = document.getElementById('status');
+      const cameraPanel = document.getElementById('cameraPanel');
+      const uploadPanel = document.getElementById('uploadPanel');
+      const cameraTab = document.getElementById('cameraTab');
+      const uploadTab = document.getElementById('uploadTab');
+      const fileInput = document.getElementById('fileInput');
+      const resultText = document.getElementById('resultText');
+      const resultBox = document.getElementById('resultBox');
+      const emptyResult = document.getElementById('emptyResult');
+      const openLink = document.getElementById('openLink');
+      let scanner = null;
+      let active = false;
+      let lastText = '';
+
+      function setStatus(message, error = false) {
+        status.textContent = message;
+        status.classList.toggle('error', error);
+      }
+      function showResult(text) {
+        lastText = text;
+        resultText.textContent = text;
+        emptyResult.classList.add('hidden');
+        resultBox.classList.remove('hidden');
+        const isUrl = /^https?:\/\//i.test(text.trim());
+        if (isUrl) {
+          openLink.href = text.trim();
+          openLink.classList.remove('hidden');
+        } else {
+          openLink.removeAttribute('href');
+          openLink.classList.add('hidden');
+        }
+        setStatus('QR code scanned successfully.');
+      }
+      function onScanSuccess(decodedText) {
+        if (decodedText && decodedText !== lastText) showResult(decodedText);
+      }
+      async function stopCamera() {
+        if (scanner && active) {
+          try { await scanner.stop(); } catch (_) {}
+          active = false;
+        }
+      }
+      async function startCamera() {
+        if (!window.Html5Qrcode) {
+          setStatus('Scanner library could not load. Check your internet connection.', true);
+          return;
+        }
+        if (!scanner) scanner = new Html5Qrcode('reader', { verbose: false });
+        try {
+          const cameras = await Html5Qrcode.getCameras();
+          if (!cameras || !cameras.length) {
+            setStatus('No camera found. Try uploading an image instead.', true);
+            return;
+          }
+          const preferred = cameras.find(c => /back|rear|environment/i.test(c.label)) || cameras[cameras.length - 1];
+          await scanner.start(
+            preferred.id,
+            { fps: 10, qrbox: (w, h) => { const size = Math.floor(Math.min(w, h) * .72); return { width: size, height: size }; }, aspectRatio: 1 },
+            onScanSuccess,
+            () => {}
+          );
+          active = true;
+          setStatus('Camera is ready. Point it at a QR code.');
+        } catch (err) {
+          setStatus('Could not start camera. Check browser permission or use image upload.', true);
+        }
+      }
+      function selectTab(which) {
+        const camera = which === 'camera';
+        cameraTab.setAttribute('aria-selected', String(camera));
+        uploadTab.setAttribute('aria-selected', String(!camera));
+        cameraPanel.classList.toggle('hidden', !camera);
+        uploadPanel.classList.toggle('hidden', camera);
+        if (camera) startCamera();
+        else { stopCamera(); setStatus('Choose an image to scan.'); }
+      }
+      cameraTab.addEventListener('click', () => selectTab('camera'));
+      uploadTab.addEventListener('click', () => selectTab('upload'));
+      document.getElementById('chooseFile').addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', async () => {
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) return;
+        if (!window.Html5Qrcode) { setStatus('Scanner library could not load.', true); return; }
+        if (!scanner) scanner = new Html5Qrcode('reader', { verbose: false });
+        setStatus('Scanning image…');
+        try {
+          const decoded = await scanner.scanFile(file, true);
+          showResult(decoded);
+        } catch (_) {
+          setStatus('No QR code found in that image. Try a clearer image.', true);
+        } finally {
+          fileInput.value = '';
+        }
+      });
+      document.getElementById('copyBtn').addEventListener('click', async () => {
+        if (!lastText) return;
+        try {
+          await navigator.clipboard.writeText(lastText);
+          setStatus('Result copied to clipboard.');
+        } catch (_) {
+          setStatus('Clipboard access unavailable. Select and copy the result manually.', true);
+        }
+      });
+      document.getElementById('clearBtn').addEventListener('click', () => {
+        lastText = '';
+        resultText.textContent = '';
+        resultBox.classList.add('hidden');
+        emptyResult.classList.remove('hidden');
+        setStatus('Result cleared.');
+      });
+      startCamera();
+    })();
+  </script>
+</body>
+</html>
